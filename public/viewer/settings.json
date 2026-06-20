@@ -16,7 +16,7 @@
     "cameras": [
         {
             "initial": {
-                "position": [0, 1, -1],
+                "position": [0, 0, -0.1],
                 "target": [0, 0, 0],
                 "fov": 60
             }
