@@ -500,62 +500,60 @@
 
   // ── PLY drag-and-drop on viewer area ───────────────────────────────
   //
-  // The iframe captures all mouse/drag events that land on it, causing the
-  // browser to navigate away when a file is dropped. Fix: disable pointer-events
-  // on the iframe for the entire duration of any drag over the document, so
-  // events bubble up to the viewer-area div instead.
+  // Problem: once the supersplat viewer loads in the iframe, ALL drag events
+  // (dragover, drop) fire inside the iframe's document — not the parent page.
+  // The parent's event listeners are never reached, so pointer-events tricks
+  // and parent-level drop handlers don't work.
+  //
+  // Fix: attach drag listeners directly to the iframe's contentDocument.
+  // Same-origin access (both at localhost:8080) makes this possible.
+  // We call this on every iframe 'load' so the listeners survive navigation.
 
-  let _dragDepth = 0;
-
-  document.addEventListener('dragenter', () => {
-    if (++_dragDepth === 1) {
-      document.getElementById('viewer-frame').style.pointerEvents = 'none';
-    }
-  });
-
-  document.addEventListener('dragleave', (e) => {
-    // relatedTarget is null when the drag leaves the browser window entirely.
-    if (e.relatedTarget === null) {
-      _dragDepth = 0;
-      document.getElementById('viewer-frame').style.pointerEvents = '';
-      document.getElementById('ply-overlay').classList.remove('visible');
-    } else {
-      _dragDepth = Math.max(0, _dragDepth - 1);
-      if (_dragDepth === 0) {
-        document.getElementById('viewer-frame').style.pointerEvents = '';
-        document.getElementById('ply-overlay').classList.remove('visible');
-      }
-    }
-  });
-
-  // Prevent the browser from handling any drop on the page (e.g. navigating).
-  document.addEventListener('dragover', (e) => e.preventDefault());
-  document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    _dragDepth = 0;
-    document.getElementById('viewer-frame').style.pointerEvents = '';
-  });
-
-  function viewerOver(e) {
-    e.preventDefault();
-    document.getElementById('ply-overlay').classList.add('visible');
+  function _plyOverlay(visible) {
+    document.getElementById('ply-overlay').classList.toggle('visible', visible);
   }
 
-  function viewerLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      document.getElementById('ply-overlay').classList.remove('visible');
-    }
-  }
-
-  function viewerDrop(e) {
-    e.preventDefault();
-    _dragDepth = 0;
-    document.getElementById('viewer-frame').style.pointerEvents = '';
-    document.getElementById('ply-overlay').classList.remove('visible');
-    const file = e.dataTransfer.files[0];
+  function _handlePlyDrop(file) {
+    _plyOverlay(false);
     if (file && file.name.toLowerCase().endsWith('.ply')) {
       loadPly(URL.createObjectURL(file), file.name);
     }
+  }
+
+  function attachIframeDragHandlers() {
+    const frame = document.getElementById('viewer-frame');
+    let doc;
+    try {
+      doc = frame.contentDocument;
+    } catch (e) {
+      return; // cross-origin guard (shouldn't happen)
+    }
+    if (!doc || doc._plyHandled) return;
+    doc._plyHandled = true;
+
+    doc.addEventListener('dragover', (e) => { e.preventDefault(); _plyOverlay(true); });
+    doc.addEventListener('dragleave', (e) => { if (!e.relatedTarget) _plyOverlay(false); });
+    doc.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // stop the viewer's own drop handler
+      _handlePlyDrop(e.dataTransfer.files[0]);
+    });
+  }
+
+  document.getElementById('viewer-frame').addEventListener('load', attachIframeDragHandlers);
+
+  // Fallback handlers on the viewer-area div itself — active when the iframe
+  // is empty (no src yet) and the cursor is at the edges of the area.
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop',     (e) => e.preventDefault()); // block page navigation
+
+  function viewerOver(e) { e.preventDefault(); _plyOverlay(true); }
+  function viewerLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) _plyOverlay(false);
+  }
+  function viewerDrop(e) {
+    e.preventDefault();
+    _handlePlyDrop(e.dataTransfer.files[0]);
   }
 
   // ── Session list ───────────────────────────────────────────────────
