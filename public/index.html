@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHARP Viewer</title>
+  <style>
+    :root {
+      --bg:            #0d0d0d;
+      --surface:       #161616;
+      --surface-hover: #1e1e1e;
+      --border:        #2a2a2a;
+      --text:          #e2e2e2;
+      --text-muted:    #666;
+      --accent:        #4a9eff;
+      --accent-hover:  #6ab0ff;
+      --success:       #4caf50;
+      --error:         #f44336;
+      --sidebar-w:     270px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      height: 44px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .header-title em { color: var(--accent); font-style: normal; }
+
+    .btn-icon {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 11px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Layout ──────────────────────────────── */
+    .body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: min-width 0.2s, width 0.2s, opacity 0.2s;
+    }
+
+    .sidebar.collapsed {
+      width: 0;
+      min-width: 0;
+      opacity: 0;
+    }
+
+    .sidebar-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: var(--sidebar-w);
+    }
+
+    .section {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section:last-child { border-bottom: none; flex: 1; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 9px;
+    }
+
+    /* ── Drop zone ───────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 7px;
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.over  { border-color: var(--accent); background: rgba(74,158,255,.07); }
+    .drop-zone.ready { border-color: var(--success); background: rgba(76,175,80,.07); }
+
+    .dz-icon   { font-size: 22px; margin-bottom: 5px; }
+    .dz-hint   { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+    .dz-name   { color: var(--text); font-size: 11px; font-weight: 500;
+                 margin-top: 4px; word-break: break-all; }
+
+    #file-input { display: none; }
+
+    /* ── Form controls ───────────────────────── */
+    label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+
+    input[type="number"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 9px;
+      border-radius: 5px;
+      font-size: 12px;
+      transition: border-color 0.15s;
+    }
+
+    input[type="number"]:focus { outline: none; border-color: var(--accent); }
+
+    .hint { font-size: 10px; color: var(--text-muted); margin-top: 5px; line-height: 1.4; }
+
+    /* ── Predict button ──────────────────────── */
+    .btn-predict {
+      width: 100%;
+      padding: 9px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-predict:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-predict:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Status message ──────────────────────── */
+    .status {
+      margin-top: 8px;
+      padding: 6px 9px;
+      border-radius: 5px;
+      font-size: 11px;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .status.info    { display: block; background: rgba(74,158,255,.12); color: var(--accent); }
+    .status.success { display: block; background: rgba(76,175,80,.12);  color: var(--success); }
+    .status.error   { display: block; background: rgba(244,67,54,.12);  color: var(--error); }
+
+    /* ── Session list ────────────────────────── */
+    .session-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .session-list li {
+      display: flex;
+      align-items: center;
+      border-radius: 5px;
+      border: 1px solid transparent;
+      transition: background 0.1s, border-color 0.1s;
+    }
+
+    .session-list li:hover    { background: var(--surface-hover); }
+    .session-list li.active   { border-color: var(--accent); background: rgba(74,158,255,.09); }
+
+    .item-name {
+      flex: 1;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+    }
+
+    .session-list li.active .item-name { color: var(--accent); }
+    .item-name:hover { color: var(--accent-hover); }
+
+    .item-dl {
+      flex-shrink: 0;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 6px 9px;
+      font-size: 14px;
+      transition: color 0.1s;
+    }
+
+    .item-dl:hover { color: var(--accent); }
+
+    .empty-hint {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-align: center;
+      padding: 14px 0;
+    }
+
+    /* ── Viewer area ─────────────────────────── */
+    .viewer-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #080808;
+    }
+
+    #viewer-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* PLY drag-and-drop overlay */
+    .ply-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(74,158,255,.1);
+      border: 3px dashed var(--accent);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 5;
+    }
+
+    .ply-overlay.visible { opacity: 1; }
+
+    .ply-overlay-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      text-shadow: 0 0 24px rgba(74,158,255,.6);
+    }
+
+    /* Empty state */
+    .viewer-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .viewer-empty.hidden { display: none; }
+
+    .ve-icon  { font-size: 52px; opacity: 0.18; }
+    .ve-title { font-size: 15px; color: var(--text-muted); }
+    .ve-hint  { font-size: 12px; color: var(--text-muted); opacity: 0.6; }
+
+    /* ── Spinner ─────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border: 2px solid rgba(255,255,255,.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.55s linear infinite;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-title">SHARP <em>Viewer</em></div>
+  <button class="btn-icon" id="toggle-btn" onclick="toggleSidebar()">≡ Controls</button>
+</header>
+
+<div class="body">
+
+  <!-- ── Sidebar ─────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+
+      <!-- Image input -->
+      <div class="section">
+        <div class="section-label">Input Image</div>
+        <div class="drop-zone" id="dz"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="dzOver(event)"
+             ondragleave="dzLeave(event)"
+             ondrop="dzDrop(event)">
+          <div class="dz-icon">🖼</div>
+          <div class="dz-hint" id="dz-hint">Drop an image here,<br>or click to browse</div>
+          <div class="dz-name" id="dz-name"></div>
+        </div>
+        <input type="file" id="file-input"
+               accept=".jpg,.jpeg,.png,.webp,.tiff,.bmp,.heic"
+               onchange="onFileSelected(event)">
+      </div>
+
+      <!-- Focal length -->
+      <div class="section">
+        <div class="section-label">Focal Length</div>
+        <label for="focal-input">35 mm equivalent (mm)</label>
+        <input type="number" id="focal-input"
+               placeholder="Auto (EXIF or 30 mm)"
+               min="1" max="2000" step="1">
+        <div class="hint">Leave blank to read from EXIF metadata.</div>
+      </div>
+
+      <!-- Predict -->
+      <div class="section">
+        <button class="btn-predict" id="predict-btn"
+                onclick="runPredict()" disabled>
+          Predict
+        </button>
+        <div class="status" id="status"></div>
+      </div>
+
+      <!-- Session files -->
+      <div class="section">
+        <div class="section-label">Session Files</div>
+        <ul class="session-list" id="session-list">
+          <li><div class="empty-hint">No files generated yet</div></li>
+        </ul>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── Viewer ──────────────────────────────── -->
+  <div class="viewer-area"
+       ondragover="viewerOver(event)"
+       ondragleave="viewerLeave(event)"
+       ondrop="viewerDrop(event)">
+    <iframe id="viewer-frame" title="3DGS Viewer"></iframe>
+    <div class="ply-overlay" id="ply-overlay">
+      <div class="ply-overlay-text">Drop .ply to view</div>
+    </div>
+    <div class="viewer-empty" id="viewer-empty">
+      <div class="ve-icon">✦</div>
+      <div class="ve-title">No scene loaded</div>
+      <div class="ve-hint">Run a prediction, or drop a .ply file onto this area</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  'use strict';
+
+  // ── State ──────────────────────────────────────────────────────────
+  let selectedFile = null;
+  let activeFilename = null;
+
+  // ── Sidebar toggle ─────────────────────────────────────────────────
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+  }
+
+  // ── Image drop zone ────────────────────────────────────────────────
+  function dzOver(e) {
+    e.preventDefault();
+    document.getElementById('dz').classList.add('over');
+  }
+
+  function dzLeave(e) {
+    document.getElementById('dz').classList.remove('over');
+  }
+
+  function dzDrop(e) {
+    e.preventDefault();
+    document.getElementById('dz').classList.remove('over');
+    const file = e.dataTransfer.files[0];
+    if (file) applyFile(file);
+  }
+
+  function onFileSelected(e) {
+    const file = e.target.files[0];
+    if (file) applyFile(file);
+  }
+
+  function applyFile(file) {
+    selectedFile = file;
+    const dz = document.getElementById('dz');
+    dz.classList.remove('over');
+    dz.classList.add('ready');
+    document.getElementById('dz-hint').textContent = 'Selected:';
+    document.getElementById('dz-name').textContent = file.name;
+    document.getElementById('predict-btn').disabled = false;
+    setStatus('');
+  }
+
+  // ── Predict ────────────────────────────────────────────────────────
+  async function runPredict() {
+    if (!selectedFile) return;
+
+    const btn = document.getElementById('predict-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Predicting…';
+    setStatus('Running inference…', 'info');
+
+    try {
+      const base64 = await toBase64(selectedFile);
+      const focalRaw = document.getElementById('focal-input').value.trim();
+      const body = { image: base64, filename: selectedFile.name };
+      if (focalRaw) body.focal_length_mm = parseFloat(focalRaw);
+
+      const res = await fetch('/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      setStatus(`Done · focal ${data.f_px} px`, 'success');
+      await refreshSessionList();
+      loadPly(`/output/${data.filename}`, data.filename);
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Predict';
+    }
+  }
+
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function setStatus(msg, type = '') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = msg ? `status ${type}` : 'status';
+  }
+
+  // ── Viewer loading ─────────────────────────────────────────────────
+  function loadPly(url, filename) {
+    const frame = document.getElementById('viewer-frame');
+    frame.src = `/viewer/?content=${encodeURIComponent(url)}`;
+    document.getElementById('viewer-empty').classList.add('hidden');
+    activeFilename = filename || url.split('/').pop();
+    updateActiveItem();
+  }
+
+  // ── PLY drag-and-drop on viewer area ───────────────────────────────
+  function viewerOver(e) {
+    e.preventDefault();
+    const hasFile = Array.from(e.dataTransfer.items || []).some(i => i.kind === 'file');
+    if (hasFile) document.getElementById('ply-overlay').classList.add('visible');
+  }
+
+  function viewerLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      document.getElementById('ply-overlay').classList.remove('visible');
+    }
+  }
+
+  function viewerDrop(e) {
+    e.preventDefault();
+    document.getElementById('ply-overlay').classList.remove('visible');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith('.ply')) {
+      const blobUrl = URL.createObjectURL(file);
+      loadPly(blobUrl, file.name);
+    }
+  }
+
+  // ── Session list ───────────────────────────────────────────────────
+  async function refreshSessionList() {
+    let files;
+    try {
+      const res = await fetch('/api/files');
+      files = await res.json();
+    } catch {
+      return;
+    }
+
+    const list = document.getElementById('session-list');
+    if (!files.length) {
+      list.innerHTML = '<li><div class="empty-hint">No files generated yet</div></li>';
+      return;
+    }
+
+    list.innerHTML = files.map(f => {
+      const active = f === activeFilename ? ' active' : '';
+      const escaped = CSS.escape(f);
+      return `
+        <li id="item-${escaped}" class="${active}">
+          <span class="item-name" onclick="loadPly('/output/${f}','${f}')" title="${f}">${f}</span>
+          <a class="item-dl" href="/output/${f}" download title="Download ${f}">↓</a>
+        </li>`.trim();
+    }).join('');
+  }
+
+  function updateActiveItem() {
+    document.querySelectorAll('.session-list li[id^="item-"]').forEach(li => li.classList.remove('active'));
+    if (activeFilename) {
+      const el = document.getElementById(`item-${CSS.escape(activeFilename)}`);
+      if (el) el.classList.add('active');
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────
+  refreshSessionList();
+</script>
+
+</body>
+</html>
