@@ -148,13 +148,13 @@ sympy==1.14.0
     # via torch
 timm==1.0.20
     # via sharp
-torch==2.8.0
+torch==2.12.1
     # via
     #   gsplat
     #   sharp
     #   timm
     #   torchvision
-torchvision==0.23.0
+torchvision==0.27.1
     # via
     #   sharp
     #   timm
