@@ -238,7 +238,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="SHARP WebUI server")
     parser.add_argument("--checkpoint", type=Path, default=None, help="Path to .pt checkpoint")
-    parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
+    parser.add_argument("--port", type=int, default=8188, help="Port to listen on (default: 8188)")
     args = parser.parse_args()
 
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -251,7 +251,7 @@ def main() -> None:
     _load_model(args.checkpoint)
 
     LOGGER.info("Listening on http://localhost:%d", args.port)
-    with _ThreadingServer(("", args.port), _Handler) as server:
+    with _ThreadingServer(("127.0.0.1", args.port), _Handler) as server:
         server.serve_forever()
 
 
