@@ -492,7 +492,7 @@
   // ── Viewer loading ─────────────────────────────────────────────────
   function loadPly(url, filename) {
     const frame = document.getElementById('viewer-frame');
-    frame.src = `/viewer/?content=${encodeURIComponent(url)}`;
+    frame.src = `/viewer/?content=${encodeURIComponent(url)}&noanim=1`;
     document.getElementById('viewer-empty').classList.add('hidden');
     activeFilename = filename || url.split('/').pop();
     updateActiveItem();
