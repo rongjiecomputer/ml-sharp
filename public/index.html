@@ -499,10 +499,46 @@
   }
 
   // ── PLY drag-and-drop on viewer area ───────────────────────────────
+  //
+  // The iframe captures all mouse/drag events that land on it, causing the
+  // browser to navigate away when a file is dropped. Fix: disable pointer-events
+  // on the iframe for the entire duration of any drag over the document, so
+  // events bubble up to the viewer-area div instead.
+
+  let _dragDepth = 0;
+
+  document.addEventListener('dragenter', () => {
+    if (++_dragDepth === 1) {
+      document.getElementById('viewer-frame').style.pointerEvents = 'none';
+    }
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    // relatedTarget is null when the drag leaves the browser window entirely.
+    if (e.relatedTarget === null) {
+      _dragDepth = 0;
+      document.getElementById('viewer-frame').style.pointerEvents = '';
+      document.getElementById('ply-overlay').classList.remove('visible');
+    } else {
+      _dragDepth = Math.max(0, _dragDepth - 1);
+      if (_dragDepth === 0) {
+        document.getElementById('viewer-frame').style.pointerEvents = '';
+        document.getElementById('ply-overlay').classList.remove('visible');
+      }
+    }
+  });
+
+  // Prevent the browser from handling any drop on the page (e.g. navigating).
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    _dragDepth = 0;
+    document.getElementById('viewer-frame').style.pointerEvents = '';
+  });
+
   function viewerOver(e) {
     e.preventDefault();
-    const hasFile = Array.from(e.dataTransfer.items || []).some(i => i.kind === 'file');
-    if (hasFile) document.getElementById('ply-overlay').classList.add('visible');
+    document.getElementById('ply-overlay').classList.add('visible');
   }
 
   function viewerLeave(e) {
@@ -513,11 +549,12 @@
 
   function viewerDrop(e) {
     e.preventDefault();
+    _dragDepth = 0;
+    document.getElementById('viewer-frame').style.pointerEvents = '';
     document.getElementById('ply-overlay').classList.remove('visible');
     const file = e.dataTransfer.files[0];
     if (file && file.name.toLowerCase().endsWith('.ply')) {
-      const blobUrl = URL.createObjectURL(file);
-      loadPly(blobUrl, file.name);
+      loadPly(URL.createObjectURL(file), file.name);
     }
   }
 
